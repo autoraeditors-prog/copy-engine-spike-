@@ -30,8 +30,17 @@ function need(name) {
   return v;
 }
 
+const sleep = (s) => new Promise((r) => setTimeout(r, s * 1000));
+
+// Never exit on failure — exiting makes Railway restart-loop us into
+// Tradovate's penalty system. Log the verdict and idle instead.
+async function holdOpen(reason) {
+  log("halt", `${reason} — spike idle, stop the Railway service when done`);
+  await new Promise(() => {});
+}
+
 async function authenticate() {
-  const body = {
+  const base = {
     name: need("TDV_USER"),
     password: need("TDV_PASS"),
     appId: process.env.TDV_APP_ID || "CopyEngineSpike",
@@ -39,29 +48,47 @@ async function authenticate() {
     deviceId: "copy-engine-spike-001",
   };
   if (process.env.TDV_CID) {
-    body.cid = Number(process.env.TDV_CID);
-    body.sec = need("TDV_SEC");
+    base.cid = Number(process.env.TDV_CID);
+    base.sec = need("TDV_SEC");
   }
-  const t0 = Date.now();
-  const res = await fetch(`${BASE}/auth/accesstokenrequest`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const json = await res.json().catch(() => ({}));
-  log("auth", `HTTP ${res.status} in ${Date.now() - t0}ms`);
 
-  if (json.errorText) { log("auth", `REJECTED: ${json.errorText}`); process.exit(2); }
-  if (json["p-ticket"]) {
-    log("auth", `Rate-limited: retry after ${json["p-time"]}s (p-ticket flow)`);
-    process.exit(3);
+  let pTicket = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const body = pTicket ? { ...base, "p-ticket": pTicket } : base;
+    const t0 = Date.now();
+    let res, json;
+    try {
+      res = await fetch(`${BASE}/auth/accesstokenrequest`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      json = await res.json().catch(() => ({}));
+    } catch (e) {
+      log("auth", `network error: ${e.message}, retrying in 30s`);
+      await sleep(30);
+      continue;
+    }
+    log("auth", `HTTP ${res.status} in ${Date.now() - t0}ms (attempt ${attempt})`);
+
+    if (json["p-ticket"]) {
+      const wait = Number(json["p-time"] || 60) + 3;
+      if (json["p-captcha"]) {
+        await holdOpen("Tradovate requires CAPTCHA — too many failed logins. Wait ~1h, verify credentials, redeploy once");
+      }
+      log("auth", `Rate-limited: waiting ${wait}s, then retrying with p-ticket`);
+      pTicket = json["p-ticket"];
+      await sleep(wait);
+      continue;
+    }
+    if (json.errorText) await holdOpen(`REJECTED: ${json.errorText}`);
+    if (!json.accessToken)
+      await holdOpen(`Unexpected response: ${JSON.stringify(json).slice(0, 300)}`);
+
+    log("auth", `OK. userId=${json.userId}, expires=${json.expirationTime}`);
+    return json;
   }
-  if (!json.accessToken) {
-    log("auth", `Unexpected response: ${JSON.stringify(json).slice(0, 300)}`);
-    process.exit(4);
-  }
-  log("auth", `OK. userId=${json.userId}, expires=${json.expirationTime}`);
-  return json;
+  await holdOpen("auth failed after 3 attempts");
 }
 
 async function listAccounts(token) {
