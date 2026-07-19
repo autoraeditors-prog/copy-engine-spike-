@@ -13,7 +13,8 @@ const app = Fastify({ logger: true });
 // Flat layout: serve exactly the three UI assets, nothing else.
 const asset = (f, type) => {
   const body = readFileSync(join(__dirname, f));
-  return (req, reply) => reply.type(type).send(body);
+  return (req, reply) =>
+    reply.type(type).header("Cache-Control", "no-store").send(body);
 };
 app.get("/", asset("index.html", "text/html; charset=utf-8"));
 app.get("/app.js", asset("app.js", "text/javascript; charset=utf-8"));
@@ -43,7 +44,7 @@ app.addHook("onRequest", async (req, reply) => {
     return reply.code(401).send({ error: "unauthorized" });
 });
 
-app.get("/api/version", async () => ({ version: "0.1.4" }));
+app.get("/api/version", async () => ({ version: "0.1.6" }));
 
 app.post("/api/login", async (req, reply) => {
   if (safeEq(req.body?.password || "", ADMIN)) {
