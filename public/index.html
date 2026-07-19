@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Copy Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+<!-- LOGIN GATE -->
+<section id="login" class="gate">
+  <div class="gate-card">
+    <div class="wordmark">COPY<span>ENGINE</span></div>
+    <p class="gate-sub">Private trade replication console</p>
+    <input id="login-pass" type="password" placeholder="Admin password" autocomplete="current-password" />
+    <button id="login-btn" class="btn btn-primary">Enter console</button>
+    <p id="login-err" class="err" hidden></p>
+  </div>
+</section>
+
+<!-- CONSOLE -->
+<main id="console" hidden>
+  <header class="tape">
+    <div class="wordmark sm">COPY<span>ENGINE</span></div>
+    <div class="tape-stats">
+      <div class="stat"><label>Engine</label><b id="stat-engine" class="amber">STANDBY</b></div>
+      <div class="stat"><label>Accounts</label><b id="stat-accounts">0</b></div>
+      <div class="stat"><label>Connected</label><b id="stat-connected">0</b></div>
+      <div class="stat"><label>Env</label><b id="stat-env">—</b></div>
+    </div>
+    <button id="flatten" class="btn btn-danger" disabled title="Activates when the copy engine goes live">FLATTEN ALL</button>
+  </header>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Accounts</h2>
+      <button id="add-btn" class="btn btn-primary">+ Add account</button>
+    </div>
+    <div id="acct-list" class="tickets"></div>
+    <div id="acct-empty" class="empty" hidden>
+      No accounts yet. Add your master first — the account you trade from TradingView — then your followers.
+    </div>
+  </section>
+
+  <section class="panel dim">
+    <div class="panel-head"><h2>Positions &amp; P&amp;L</h2><span class="tag">next milestone</span></div>
+    <div class="empty">Goes live once a master account is connected and the copy engine starts. Every fill will stream here in real time.</div>
+  </section>
+</main>
+
+<!-- ADD ACCOUNT MODAL -->
+<div id="modal" class="modal" hidden>
+  <div class="modal-card">
+    <h3>Add account</h3>
+    <label>Label <input id="f-label" placeholder="e.g. Lucid Master 50K" /></label>
+    <div class="row">
+      <label>Role
+        <select id="f-role"><option value="master">Master (lead)</option><option value="follower">Follower</option></select>
+      </label>
+      <label>Environment
+        <select id="f-env"><option value="demo">Demo</option><option value="live">Live</option></select>
+      </label>
+    </div>
+    <label>Tradovate username <input id="f-user" autocomplete="off" /></label>
+    <label>Tradovate password <input id="f-pass" type="password" autocomplete="new-password" /></label>
+    <p class="hint">Stored encrypted (AES-256-GCM) on your own server. Never sent anywhere except Tradovate.</p>
+    <p id="modal-err" class="err" hidden></p>
+    <div class="row">
+      <button id="modal-cancel" class="btn">Cancel</button>
+      <button id="modal-save" class="btn btn-primary">Save account</button>
+    </div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
