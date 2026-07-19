@@ -36,6 +36,7 @@ const sleep = (s) => new Promise((r) => setTimeout(r, s * 1000));
 // Tradovate's penalty system. Log the verdict and idle instead.
 async function holdOpen(reason) {
   log("halt", `${reason} — spike idle, stop the Railway service when done`);
+  setInterval(() => {}, 2147483647); // real handle: keeps the event loop alive
   await new Promise(() => {});
 }
 
