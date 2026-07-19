@@ -12,7 +12,6 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "@fastify/static": "^10.1.0",
     "better-sqlite3": "^12.11.1",
     "fastify": "^5.10.0"
   }

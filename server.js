@@ -1,16 +1,23 @@
 // server.js — Copy Engine platform server (v0.1: account management + connection tests)
 import Fastify from "fastify";
-import fastifyStatic from "@fastify/static";
-import { timingSafeEqual } from "crypto";
+import { readFileSync } from "fs";
+import { randomBytes, timingSafeEqual } from "crypto";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { accounts } from "./lib/store.js";
-import { testConnection } from "./lib/tradovate.js";
+import { accounts } from "./store.js";
+import { testConnection } from "./tradovate.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = Fastify({ logger: true });
 
-app.register(fastifyStatic, { root: join(__dirname, "public") });
+// Flat layout: serve exactly the three UI assets, nothing else.
+const asset = (f, type) => {
+  const body = readFileSync(join(__dirname, f));
+  return (req, reply) => reply.type(type).send(body);
+};
+app.get("/", asset("index.html", "text/html; charset=utf-8"));
+app.get("/app.js", asset("app.js", "text/javascript; charset=utf-8"));
+app.get("/styles.css", asset("styles.css", "text/css; charset=utf-8"));
 
 // ---- admin auth (single-user, header token) --------------------------------
 const ADMIN = process.env.ADMIN_PASSWORD;
@@ -22,16 +29,27 @@ const safeEq = (a, b) => {
   const ab = Buffer.from(String(a)), bb = Buffer.from(String(b));
   return ab.length === bb.length && timingSafeEqual(ab, bb);
 };
+
+// Session tokens: password is only ever sent once (login body); afterwards the
+// browser holds a random hex token. Tokens live in memory — a redeploy simply
+// asks you to log in again.
+const sessions = new Set();
+
 app.addHook("onRequest", async (req, reply) => {
-  if (!req.url.startsWith("/api/") || req.url === "/api/login") return;
-  let provided = "";
-  try { provided = decodeURIComponent(req.headers["x-admin-key"] || ""); } catch { provided = ""; }
-  if (!safeEq(provided, ADMIN))
+  if (!req.url.startsWith("/api/")) return;
+  if (req.url === "/api/login" || req.url === "/api/version") return;
+  if (!sessions.has(req.headers["x-session"] || ""))
     return reply.code(401).send({ error: "unauthorized" });
 });
 
+app.get("/api/version", async () => ({ version: "0.1.3" }));
+
 app.post("/api/login", async (req, reply) => {
-  if (safeEq(req.body?.password || "", ADMIN)) return { ok: true };
+  if (safeEq(req.body?.password || "", ADMIN)) {
+    const token = randomBytes(24).toString("hex");
+    sessions.add(token);
+    return { ok: true, token };
+  }
   return reply.code(401).send({ error: "Wrong password" });
 });
 
