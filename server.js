@@ -1,7 +1,7 @@
 // server.js — Copy Engine platform server (v0.1: account management + connection tests)
 import Fastify from "fastify";
 import { readFileSync } from "fs";
-import { randomBytes, timingSafeEqual } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { accounts } from "./store.js";
@@ -30,25 +30,24 @@ const safeEq = (a, b) => {
   return ab.length === bb.length && timingSafeEqual(ab, bb);
 };
 
-// Session tokens: password is only ever sent once (login body); afterwards the
-// browser holds a random hex token. Tokens live in memory — a redeploy simply
-// asks you to log in again.
-const sessions = new Set();
+// Stateless session token: deterministically derived from the two server
+// secrets, so logins SURVIVE redeploys and restarts. Rotates automatically if
+// either secret changes. Single-admin tool — one stable bearer token is fine.
+const SESSION_TOKEN = createHmac("sha256", process.env.ENCRYPTION_KEY || "")
+  .update("session-v1:" + ADMIN).digest("hex");
 
 app.addHook("onRequest", async (req, reply) => {
   if (!req.url.startsWith("/api/")) return;
   if (req.url === "/api/login" || req.url === "/api/version") return;
-  if (!sessions.has(req.headers["x-session"] || ""))
+  if (!safeEq(req.headers["x-session"] || "", SESSION_TOKEN))
     return reply.code(401).send({ error: "unauthorized" });
 });
 
-app.get("/api/version", async () => ({ version: "0.1.3" }));
+app.get("/api/version", async () => ({ version: "0.1.4" }));
 
 app.post("/api/login", async (req, reply) => {
   if (safeEq(req.body?.password || "", ADMIN)) {
-    const token = randomBytes(24).toString("hex");
-    sessions.add(token);
-    return { ok: true, token };
+    return { ok: true, token: SESSION_TOKEN };
   }
   return reply.code(401).send({ error: "Wrong password" });
 });
