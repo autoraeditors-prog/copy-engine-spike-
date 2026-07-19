@@ -3,7 +3,7 @@ const $ = (id) => document.getElementById(id);
 let KEY = sessionStorage.getItem("ck") || "";
 
 const api = async (path, opts = {}) => {
-  const headers = { "x-admin-key": KEY, ...(opts.headers || {}) };
+  const headers = { "x-admin-key": encodeURIComponent(KEY), ...(opts.headers || {}) };
   if (opts.body) headers["Content-Type"] = "application/json";
   const res = await fetch(path, {
     ...opts,

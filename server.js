@@ -24,7 +24,9 @@ const safeEq = (a, b) => {
 };
 app.addHook("onRequest", async (req, reply) => {
   if (!req.url.startsWith("/api/") || req.url === "/api/login") return;
-  if (!safeEq(req.headers["x-admin-key"] || "", ADMIN))
+  let provided = "";
+  try { provided = decodeURIComponent(req.headers["x-admin-key"] || ""); } catch { provided = ""; }
+  if (!safeEq(provided, ADMIN))
     return reply.code(401).send({ error: "unauthorized" });
 });
 
