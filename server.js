@@ -44,7 +44,7 @@ app.addHook("onRequest", async (req, reply) => {
     return reply.code(401).send({ error: "unauthorized" });
 });
 
-app.get("/api/version", async () => ({ version: "0.1.6" }));
+app.get("/api/version", async () => ({ version: "0.1.7" }));
 
 app.post("/api/login", async (req, reply) => {
   if (safeEq(req.body?.password || "", ADMIN)) {

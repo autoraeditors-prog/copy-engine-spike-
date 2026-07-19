@@ -119,4 +119,18 @@ $("modal-save").onclick = async () => {
 };
 
 // ---- boot ------------------------------------------------------------------
-if (KEY) { $("login").hidden = true; $("console").hidden = false; refresh().catch(logout); }
+// Boot: verify the stored token is actually valid BEFORE revealing the console.
+// A stale token (e.g. after a secret rotation) cleanly drops us to the login
+// screen instead of showing a console that silently 401s on every action.
+(async () => {
+  if (!KEY) return; // no token → login screen already visible
+  try {
+    const res = await fetch("/api/accounts", { headers: { "x-session": KEY } });
+    if (!res.ok) throw new Error("stale");
+    $("login").hidden = true;
+    $("console").hidden = false;
+    refresh().catch(logout);
+  } catch {
+    logout(); // token rejected → force fresh login
+  }
+})();
